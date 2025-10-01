@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "23477508391",
+    "project_id": "appejemploduoc",
+    "storage_bucket": "appejemploduoc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:23477508391:android:47ad3a9dbca22a4dc33102",
+        "android_client_info": {
+          "package_name": "cl.daeriquelme.appduoc_profe"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBlj1VGuu0-zQLzAAbv_wSwbaWCYyTwg7c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
