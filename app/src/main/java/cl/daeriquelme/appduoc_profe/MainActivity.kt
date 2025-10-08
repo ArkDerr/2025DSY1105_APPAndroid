@@ -11,8 +11,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import cl.daeriquelme.appduoc_profe.ui.HomeScreen
+import cl.daeriquelme.appduoc_profe.ui.home.HomeScreen
 import cl.daeriquelme.appduoc_profe.ui.theme.AppDuoc_ProfeTheme
+import cl.daeriquelme.appduoc_profe.ui.app.AppNavHost
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -20,7 +21,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             AppDuoc_ProfeTheme {
-                    HomeScreen()
+                    AppNavHost()
                 }
             }
         }

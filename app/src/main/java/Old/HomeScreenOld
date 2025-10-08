@@ -20,7 +20,7 @@ import cl.daeriquelme.appduoc_profe.R
 
 //@Composable fun HomeScreen(): declara un composable, es decir, una función que pinta UI en Compose.
 @Composable
-fun HomeScreen() {
+fun HomeScreenOld() {
 
     //Crea y memoriza un NavController para esta UI.
     //remember… evita que se cree uno nuevo en cada recomposición: el controlador se mantiene estable mientras el composable vive.
@@ -132,6 +132,6 @@ private fun HomeContent(
 
 @Preview(showBackground = true)
 @Composable
-fun HomeScreenPreview() {
-    HomeScreen()
+fun HomeScreenOldPreview() {
+    HomeScreenOld()
 }

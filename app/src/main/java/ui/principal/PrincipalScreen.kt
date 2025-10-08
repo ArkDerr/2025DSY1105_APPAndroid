@@ -1,4 +1,4 @@
-package cl.daeriquelme.appduoc_profe.ui
+package cl.daeriquelme.appduoc_profe.ui.principal
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -11,10 +11,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.*
-import com.google.firebase.auth.FirebaseAuth
+import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.daeriquelme.appduoc_profe.ui.theme.AppDuoc_ProfeTheme
 
-// Items del Bottom Navigation
+// --- Bottom items igual que antes ---
 sealed class BottomItem(
     val route: String,
     val title: String,
@@ -27,16 +27,12 @@ sealed class BottomItem(
     data object Clips : BottomItem("clips", "Clips", Icons.Outlined.PlayArrow)
     data object More : BottomItem("more", "Más", Icons.Outlined.Menu)
 }
-
-private val bottomItems = listOf(
-    BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Clips, BottomItem.More
-)
+private val bottomItems = listOf(BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Clips, BottomItem.More)
 
 @Composable
 private fun BottomBar(navController: NavHostController) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
-
     NavigationBar {
         bottomItems.forEach { item ->
             NavigationBarItem(
@@ -66,12 +62,23 @@ private fun BottomBar(navController: NavHostController) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PrincipalScreen(
-    onLogout: () -> Unit = {}
+    onLogout: () -> Unit = {},
+    vm: PrincipalViewModel = viewModel()
 ) {
-    val user = FirebaseAuth.getInstance().currentUser
-    val saludo = "Hola ${user?.email ?: "usuario"}"
+    val state by vm.ui.collectAsState()
     var expanded by remember { mutableStateOf(false) }
     val tabsNav = rememberNavController()
+
+    // Navegación reactiva al hacer logout
+    LaunchedEffect(state.loggedOut) {
+        if (state.loggedOut) onLogout()
+    }
+
+    // (Opcional) Snackbar para errores
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.error) {
+        state.error?.let { snackbarHostState.showSnackbar(it) }
+    }
 
     Scaffold(
         topBar = {
@@ -99,15 +106,15 @@ fun PrincipalScreen(
                             text = { Text("Logout") },
                             onClick = {
                                 expanded = false
-                                FirebaseAuth.getInstance().signOut()
-                                onLogout()
+                                vm.logout()        // <-- ViewModel
                             }
                         )
                     }
                 }
             )
         },
-        bottomBar = { BottomBar(tabsNav) }
+        bottomBar = { BottomBar(tabsNav) },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { inner ->
         // NavHost de pestañas
         NavHost(
@@ -122,32 +129,20 @@ fun PrincipalScreen(
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    val saludo = "Hola ${state.email ?: "usuario"}"
                     Text(saludo, style = MaterialTheme.typography.headlineSmall)
                     Text("Bienvenido a tu pantalla principal.")
                 }
             }
-
             composable(BottomItem.Favs.route) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { Text("Favoritos") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Favoritos") }
             }
-
             composable(BottomItem.Cart.route) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { Text("Carrito") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Carrito") }
             }
-
             composable(BottomItem.Clips.route) {
-                Box(
-                    Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) { Text("Clips") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Clips") }
             }
-
             composable(BottomItem.More.route) {
                 Column(
                     Modifier
@@ -157,13 +152,10 @@ fun PrincipalScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
                 ) {
                     Text("Más opciones")
-                    Button(onClick = {
-                        FirebaseAuth.getInstance().signOut()
-                        onLogout()
-                    }) {
+                    Button(onClick = { vm.logout() }) {   // <-- ViewModel
                         Icon(Icons.Outlined.Close, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Cerrar sesión")
+                        Text(if (state.loading) "Cerrando..." else "Cerrar sesión")
                     }
                 }
             }
