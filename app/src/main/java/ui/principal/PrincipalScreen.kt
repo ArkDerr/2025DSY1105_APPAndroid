@@ -1,6 +1,11 @@
 package cl.daeriquelme.appduoc_profe.ui.principal
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
@@ -10,11 +15,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import cl.daeriquelme.appduoc_profe.ui.theme.AppDuoc_ProfeTheme
+import cl.daeriquelme.appduoc_profe.ui.principal.components.UiProductosCard
 
-// --- Bottom items igual que antes ---
+
+// --- Bottom items ---
 sealed class BottomItem(
     val route: String,
     val title: String,
@@ -27,7 +37,9 @@ sealed class BottomItem(
     data object Clips : BottomItem("clips", "Clips", Icons.Outlined.PlayArrow)
     data object More : BottomItem("more", "Más", Icons.Outlined.Menu)
 }
-private val bottomItems = listOf(BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Clips, BottomItem.More)
+private val bottomItems = listOf(
+    BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Clips, BottomItem.More
+)
 
 @Composable
 private fun BottomBar(navController: NavHostController) {
@@ -59,22 +71,25 @@ private fun BottomBar(navController: NavHostController) {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PrincipalScreen(
     onLogout: () -> Unit = {},
     vm: PrincipalViewModel = viewModel()
 ) {
     val state by vm.ui.collectAsState()
+    val categoriaSel by vm.categoriaSel.collectAsState()
+    val productos by vm.productosFiltrados.collectAsState()
+
     var expanded by remember { mutableStateOf(false) }
     val tabsNav = rememberNavController()
 
-    // Navegación reactiva al hacer logout
+    // logout reactivo
     LaunchedEffect(state.loggedOut) {
         if (state.loggedOut) onLogout()
     }
 
-    // (Opcional) Snackbar para errores
+    // Snackbar para errores
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.error) {
         state.error?.let { snackbarHostState.showSnackbar(it) }
@@ -106,7 +121,7 @@ fun PrincipalScreen(
                             text = { Text("Logout") },
                             onClick = {
                                 expanded = false
-                                vm.logout()        // <-- ViewModel
+                                vm.logout()
                             }
                         )
                     }
@@ -116,7 +131,6 @@ fun PrincipalScreen(
         bottomBar = { BottomBar(tabsNav) },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { inner ->
-        // NavHost de pestañas
         NavHost(
             navController = tabsNav,
             startDestination = BottomItem.Home.route,
@@ -132,8 +146,47 @@ fun PrincipalScreen(
                     val saludo = "Hola ${state.email ?: "usuario"}"
                     Text(saludo, style = MaterialTheme.typography.headlineSmall)
                     Text("Bienvenido a tu pantalla principal.")
+
+                    // ====== Filtros por categoría (desde VM) ======
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(vm.categorias.size) { idx ->
+                            val cat = vm.categorias[idx]
+                            FilterChip(
+                                selected = categoriaSel == cat,
+                                onClick = { vm.setCategoria(cat) },
+                                label = { Text(cat) }
+                            )
+                        }
+                    }
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 180.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
+                    ) {
+                        items(productos, key = { it.id }) { producto ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.6f)
+                            ) {
+                                UiProductosCard(
+                                    producto = producto,
+                                    onAgregar = {
+                                        // TODO: vm.agregarAlCarrito(producto.id)
+                                        // Snackbar opcional usando snackbarHostState si quieres feedback
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
+
             composable(BottomItem.Favs.route) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Favoritos") }
             }
@@ -152,7 +205,7 @@ fun PrincipalScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
                 ) {
                     Text("Más opciones")
-                    Button(onClick = { vm.logout() }) {   // <-- ViewModel
+                    Button(onClick = { vm.logout() }) {
                         Icon(Icons.Outlined.Close, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text(if (state.loading) "Cerrando..." else "Cerrar sesión")

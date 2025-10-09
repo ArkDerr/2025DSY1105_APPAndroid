@@ -7,6 +7,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import cl.daeriquelme.appduoc_profe.model.productosDemo
+import cl.daeriquelme.appduoc_profe.model.Producto
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+
 
 data class PrincipalUiState(
     val email: String? = null,
@@ -39,4 +45,24 @@ class PrincipalViewModel(
             }
         }
     }
+
+    private val _categoriaSel = MutableStateFlow("Todos")
+    val categoriaSel: StateFlow<String> = _categoriaSel
+
+    val categorias: List<String> = listOf("Todos") + productosDemo.map { it.categoria }.distinct()
+
+    // Lista filtrada reactiva
+    val productosFiltrados: StateFlow<List<Producto>> =
+        _categoriaSel
+            .map { cat ->
+                if (cat == "Todos") productosDemo
+                else productosDemo.filter { it.categoria == cat }
+            }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, productosDemo)
+
+    fun setCategoria(cat: String) {
+        _categoriaSel.value = cat
+    }
+
+
 }
