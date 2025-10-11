@@ -11,6 +11,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import cl.daeriquelme.appduoc_profe.R
+import cl.daeriquelme.appduoc_profe.ui.home.components.AnimatedLogo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -46,13 +47,19 @@ private fun HomeContent(
         verticalArrangement = Arrangement.spacedBy(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Image(
+        /*Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Logo App",
             modifier = Modifier
                 .fillMaxWidth()
                 .height(150.dp),
             contentScale = ContentScale.Fit
+        )*/
+        AnimatedLogo(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+            // playing = ui.desdeVM, si tienes VM; por ahora puede quedar por defecto
         )
         Text("¡Bienvenido!")
         Button(onClick = onLoginClick) { Text("Login") }
