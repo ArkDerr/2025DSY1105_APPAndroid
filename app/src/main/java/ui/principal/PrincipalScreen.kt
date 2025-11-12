@@ -1,20 +1,42 @@
 package cl.daeriquelme.appduoc_profe.ui.principal
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.*
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavHostController
-import androidx.navigation.compose.*
 import androidx.lifecycle.viewmodel.compose.viewModel
-import cl.daeriquelme.appduoc_profe.ui.theme.AppDuoc_ProfeTheme
+import androidx.navigation.NavHostController
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import cl.daeriquelme.appduoc_profe.ui.principal.components.UiProductosCard
+import cl.daeriquelme.appduoc_profe.ui.profile.ProfileScreen
+import cl.daeriquelme.appduoc_profe.ui.profile.ProfileViewModel
+import cl.daeriquelme.appduoc_profe.repository.auth.FirebaseAuthDataSource
+import cl.daeriquelme.appduoc_profe.data.media.MediaRepository
+import cl.daeriquelme.appduoc_profe.ui.vmfactory.ProfileVMFactory
+import cl.daeriquelme.appduoc_profe.ui.vmfactory.RecordatorioVMFactory
 
-// --- Bottom items igual que antes ---
+// --- Bottom items ---
 sealed class BottomItem(
     val route: String,
     val title: String,
@@ -24,24 +46,43 @@ sealed class BottomItem(
     data object Home : BottomItem("home", "Inicio", Icons.Outlined.Home)
     data object Favs : BottomItem("favs", "Favoritos", Icons.Outlined.FavoriteBorder)
     data object Cart : BottomItem("cart", "Carrito", Icons.Outlined.ShoppingCart, badge = 3)
-    data object Clips : BottomItem("clips", "Clips", Icons.Outlined.PlayArrow)
+    data object Agenda : BottomItem("agenda", "Agenda", Icons.Outlined.PlayArrow)
     data object More : BottomItem("more", "Más", Icons.Outlined.Menu)
+    data object Feriados : BottomItem("feriados", "Feriados", Icons.Outlined.Info)
 }
-private val bottomItems = listOf(BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Clips, BottomItem.More)
+
+private val bottomItems = listOf(
+    BottomItem.Home, BottomItem.Favs, BottomItem.Cart, BottomItem.Agenda, BottomItem.Feriados, BottomItem.More
+)
 
 @Composable
-private fun BottomBar(navController: NavHostController) {
+private fun BottomBar(
+    navController: NavHostController,
+    onHomeTap: () -> Unit
+) {
     val backStack by navController.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route
+
     NavigationBar {
         bottomItems.forEach { item ->
             NavigationBarItem(
                 selected = currentRoute == item.route,
                 onClick = {
-                    navController.navigate(item.route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                    if (item.route == BottomItem.Home.route) {
+                        // SIEMPRE refrescamos Home y NO restauramos estado
+                        onHomeTap()
+                        navController.navigate(BottomItem.Home.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = false }
+                            launchSingleTop = true
+                            restoreState = false
+                        }
+                    } else {
+                        // Resto de tabs con preservación de estado
+                        navController.navigate(item.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 },
                 icon = {
@@ -53,28 +94,32 @@ private fun BottomBar(navController: NavHostController) {
                         Icon(item.icon, contentDescription = item.title)
                     }
                 },
-                label = { Text(item.title) }
+                label = { Text(item.title) },
+                colors = NavigationBarItemDefaults.colors()
             )
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun PrincipalScreen(
     onLogout: () -> Unit = {},
     vm: PrincipalViewModel = viewModel()
 ) {
     val state by vm.ui.collectAsState()
+    val categoriaSel by vm.categoriaSel.collectAsState()
+    val productos by vm.productosFiltrados.collectAsState()
+
     var expanded by remember { mutableStateOf(false) }
     val tabsNav = rememberNavController()
 
-    // Navegación reactiva al hacer logout
+    // Logout reactivo
     LaunchedEffect(state.loggedOut) {
         if (state.loggedOut) onLogout()
     }
 
-    // (Opcional) Snackbar para errores
+    // Snackbar para errores
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(state.error) {
         state.error?.let { snackbarHostState.showSnackbar(it) }
@@ -94,7 +139,10 @@ fun PrincipalScreen(
                     ) {
                         DropdownMenuItem(
                             text = { Text("Perfil") },
-                            onClick = { expanded = false },
+                            onClick = {
+                                expanded = false
+                                tabsNav.navigate("profile")
+                            },
                             leadingIcon = { Icon(Icons.Outlined.Info, contentDescription = null) }
                         )
                         DropdownMenuItem(
@@ -106,43 +154,118 @@ fun PrincipalScreen(
                             text = { Text("Logout") },
                             onClick = {
                                 expanded = false
-                                vm.logout()        // <-- ViewModel
+                                vm.logout()
                             }
                         )
                     }
                 }
             )
         },
-        bottomBar = { BottomBar(tabsNav) },
+        bottomBar = { BottomBar(tabsNav, onHomeTap = { vm.refreshHome() }) },
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { inner ->
-        // NavHost de pestañas
         NavHost(
             navController = tabsNav,
             startDestination = BottomItem.Home.route,
             modifier = Modifier.padding(inner)
         ) {
-            composable(BottomItem.Home.route) {
+            // HOME
+            composable(route = BottomItem.Home.route) {
+                // Carga inicial en el primer ingreso
+                LaunchedEffect(Unit) {
+                    if (productos.isEmpty()) vm.cargarProductos()
+                }
+
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    val saludo = "Hola ${state.email ?: "usuario"}"
+                    val saludo = "Hola ${state.nombre ?: state.email ?: "usuario"}"
                     Text(saludo, style = MaterialTheme.typography.headlineSmall)
                     Text("Bienvenido a tu pantalla principal.")
+
+                    // Filtros por categoría
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp)
+                    ) {
+                        items(vm.categorias.size) { idx ->
+                            val cat = vm.categorias[idx]
+                            FilterChip(
+                                selected = categoriaSel == cat,
+                                onClick = { vm.setCategoria(cat) },
+                                label = { Text(cat) }
+                            )
+                        }
+                    }
+
+                    // Grilla de productos
+                    LazyVerticalGrid(
+                        columns = GridCells.Adaptive(minSize = 180.dp),
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        contentPadding = PaddingValues(top = 8.dp, bottom = 80.dp)
+                    ) {
+                        items(productos, key = { it.id }) { producto ->
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.6f)
+                                    .animateContentSize()
+                            ) {
+                                UiProductosCard(
+                                    producto = producto,
+                                    onAgregar = {
+                                        // TODO: vm.agregarAlCarrito(producto.id)
+                                    }
+                                )
+                            }
+                        }
+                    }
                 }
             }
+
+            // FAVORITOS
             composable(BottomItem.Favs.route) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Favoritos") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Favoritos")
+                }
             }
+
+            // CARRITO
             composable(BottomItem.Cart.route) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Carrito") }
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Carrito")
+                }
             }
-            composable(BottomItem.Clips.route) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Clips") }
+
+            // RECORDATORIO
+            composable(BottomItem.Agenda.route) {
+                val uid = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser?.uid
+                if (uid == null) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text("Debes iniciar sesión para ver tus recordatorios.")
+                    }
+                } else {
+                    val context = androidx.compose.ui.platform.LocalContext.current
+                    val factory = remember(uid) { cl.daeriquelme.appduoc_profe.ui.vmfactory.RecordatorioVMFactory(context, uid) }
+                    val rvm: cl.daeriquelme.appduoc_profe.ui.recordatorio.RecordatorioViewModel =
+                        androidx.lifecycle.viewmodel.compose.viewModel(factory = factory)
+                    cl.daeriquelme.appduoc_profe.ui.recordatorio.RecordatorioScreen(rvm)
+                }
             }
+
+            // FERIADOS
+            composable(BottomItem.Feriados.route) {
+                // ViewModel sin factory (tiene constructor por defecto usando el repo)
+                val fvm: cl.daeriquelme.appduoc_profe.ui.feriados.FeriadoViewModel = viewModel()
+                cl.daeriquelme.appduoc_profe.ui.feriados.FeriadoScreen(viewModel = fvm)
+            }
+
+            // MÁS
             composable(BottomItem.More.route) {
                 Column(
                     Modifier
@@ -152,21 +275,22 @@ fun PrincipalScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically)
                 ) {
                     Text("Más opciones")
-                    Button(onClick = { vm.logout() }) {   // <-- ViewModel
+                    Button(onClick = { vm.logout() }) {
                         Icon(Icons.Outlined.Close, contentDescription = null)
                         Spacer(Modifier.width(8.dp))
                         Text(if (state.loading) "Cerrando..." else "Cerrar sesión")
                     }
                 }
             }
-        }
-    }
-}
 
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun PrincipalScreenPreview() {
-    AppDuoc_ProfeTheme {
-        PrincipalScreen(onLogout = {})
+            // PERFIL
+            composable("profile") {
+                val authDs = remember { FirebaseAuthDataSource() }
+                val mediaRepo = remember { MediaRepository() }
+                val factory = remember { ProfileVMFactory(authDs, mediaRepo) }
+                val pvm: ProfileViewModel = viewModel(factory = factory)
+                ProfileScreen(pvm)
+            }
+        }
     }
 }
