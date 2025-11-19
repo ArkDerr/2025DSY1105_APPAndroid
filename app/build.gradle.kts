@@ -122,4 +122,27 @@ dependencies {
     // Coil (si quieres previsualizar imagenes en Compose)
     implementation("io.coil-kt:coil-compose:2.6.0")
 
+
+    //Configuración para test unitarios
+    // Kotest framework de testing para Kotlin
+    testImplementation("io.kotest:kotest-runner-junit5:5.8.0") // Permite ejecutar los tests de Kotest en JUnit 5, porque Android Studio por defecto usa JUnit.
+    testImplementation("io.kotest:kotest-assertions-core:5.8.0") // Asserts -> verificaciones
+
+    // JUnit 5
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0") // JUnit (JUnit 5), el estándar de pruebas en Java/Kotlin.
+
+    // MockK
+    testImplementation("io.mockk:mockk:1.13.10") // librería para crear: mocks (objetos falsos), stubs (respuestas falsas), spies, verificación de llamadas
+
+    // Compose UI Test
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.6.2") // Permite renderizar Composables en tests, buscar nodos en la UI, hacer clicks, validar textos, correr en un emulador real
+    debugImplementation("androidx.compose.ui:ui-test-manifest:1.6.2") // Necesario para que el entorno de pruebas tenga actividad
+
+    // Coroutines testing
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1") // Testear funciones suspend {} sin depender de delays reales.
+}
+
+// Obligatorio para usar JUnit 5, habilita JUnit Platform, permite correr Kotest, permite mezclar JUnit 4 y JUnit 5 si deseas
+tasks.withType<Test> {
+    useJUnitPlatform()
 }
